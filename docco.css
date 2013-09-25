@@ -12,6 +12,9 @@ body {
 
 a {
   color: #4679A4;
+}
+
+p a {
   padding-left: 35px;
   background-image: url('jsfiddle.png');
   background-repeat: no-repeat;
