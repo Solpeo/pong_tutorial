@@ -21,7 +21,7 @@ can choose between mouse and keyboard control, so we need to define the options 
 
         var settings = {
 
-In Pong there is a top and bottom bar which define the top and bottom of the playing field. Let's make these 20px wide
+In Pong there are top and bottom bars which define the top and bottom of the playing field. Let's make these 20px wide
 and define that in the settings. Similarly, we'll define how large several other elements need to be.
 
             barSize: 20,
@@ -146,7 +146,7 @@ top of the bar.
         layout.appendChild(bars.bottom);
 
 The paddles are defined in the same way as the bars, but anchored to the left and right of the layout. We don't need to
-set the top right now, because the motion code will handle that.
+set the paddles' top right now, because the motion code will handle that.
 
         var paddles = {
 
@@ -208,10 +208,10 @@ current on-scene position. Since we're building a 2D game made of only boxes, if
             return box1.background.bb.overlap(box2.background.bb);
         }
 
-In JavaScript we can always add custom keys to object, so let's add the motion keys to the `UI.Box` objects that need
-to be able to move. The ball in 2 dimensions, the paddles only in the vertical direction. The motion for the paddles is
-used when keyboard control is being used. Then when the key is pressed it will be changed to the speed in that direction
-and reset to 0 when the key is released.
+In JavaScript we can always add custom keys to object, so let's add motion keys to the `UI.Box` objects that need
+to be able to move. The ball moves in 2 dimensions, the paddles only in the vertical direction. The motion for the
+paddles is used when keyboard control is being used. Then when the key is pressed it will be changed to the speed in
+that direction and reset to 0 when the key is released.
 
         ball.motion = {
             x: settings.ballSpeed,
@@ -223,7 +223,7 @@ and reset to 0 when the key is released.
         paddles.right.motion = 0;
 
 When the game is controlled by the mouse, we should smooth the movement of the paddle a little. This function is also
-used for the AI. The AI in this game seems quite unbeatable, to have some fun, you could try to make the game winnable.
+used for the AI. The AI in this game seems quite unbeatable; to have some fun, you could try to make the game winnable.
 
         function elasticMove(paddle, desiredPosition, elasticity){
             var desiredTop = desiredPosition - 0.5 * settings.paddleHeight;
@@ -241,7 +241,6 @@ The movePaddle function checks if the user (or AI) is trying to move the paddle 
 correctly.
 
         function movePaddle(paddle, top){
-            // Helper function to move paddle, without going outside the bars
             top = (top + settings.paddleHeight > bars.bottom.top) ? bars.bottom.top - settings.paddleHeight : top;
             top = (top < bars.top.bottom) ? bars.top.bottom : top;
 
@@ -328,7 +327,7 @@ When the motion is set, the game loop will start moving the paddle
             }
         }
 
-Now catch the actual `keydown` and `keyup` by putting an event handler on `Engine.Input`.
+Now catch the actual `keydown` and `keyup` events by putting an event handler on `Engine.Input`.
 
         Engine.Input.on('keydown', function(e){
             if(settings.controls.type === controlOptions.KEYBOARD)
