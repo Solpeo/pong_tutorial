@@ -82,7 +82,6 @@ and define that in the settings. Similarly, we&#39;ll define how large several o
             <div class="content"><div class='highlight'><pre>        barSize: <span class="number">20</span>,
         margin: <span class="number">40</span>,
         paddleHeight: <span class="number">80</span>,
-        ballSpeed: <span class="number">10</span>,
         ballSize: <span class="number">20</span>,
         color: <span class="string">'white'</span>,
         stroke: <span class="string">'transparent'</span>,</pre></div></div>
@@ -101,7 +100,8 @@ will allow us to fine-tune the movement later.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>        paddleSpeed: <span class="number">10</span>,
+            <div class="content"><div class='highlight'><pre>        ballSpeed: <span class="number">300</span>,
+        paddleSpeed: <span class="number">100</span>,
         minPaddleSpeed: <span class="number">5</span>,
         maxPaddleSpeed: <span class="number">15</span>,
         playerElasticity: <span class="number">0.5</span>,
@@ -223,12 +223,14 @@ contain multiple cameras, which could for example look at different locations of
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-12">&#182;</a>
               </div>
-              <p>The camera actually renders the scene.</p>
+              <p>The camera actually renders the scene. For a Pong game it shouldn&#39;t be scrollable, or a user could drag away the game
+using their mouse.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre>    <span class="keyword">var</span> camera = <span class="keyword">new</span> Engine.Camera({
-        lookAt: scene
+        lookAt: scene,
+        scrollable: <span class="literal">false</span>
     });</pre></div></div>
             
         </li>
@@ -276,7 +278,7 @@ outsides of the camera.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="keyword">var</span> layout = window.layout = <span class="keyword">new</span> Engine.UI.Layout({
+            <div class="content"><div class='highlight'><pre>    <span class="keyword">var</span> layout = <span class="keyword">new</span> Engine.UI.Layout({
         fill: camera
     });
 
@@ -539,11 +541,15 @@ correctly.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-26">&#182;</a>
               </div>
-              <p>The on <code>step</code> handler is called on each new frame, in most games it would hold the game loop logic.</p>
+              <p>The on <code>step</code> handler is called on each new frame, in most games it would hold the game loop logic. The timer&#39;s
+stepprogress property indicates the amount of milliseconds that elapsed since the previous frame. This is used here
+to make sure frame rate drops won&#39;t affect the movement speed.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    game.on(<span class="string">'step'</span>, <span class="keyword">function</span>(){</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    game.on(<span class="string">'step'</span>, <span class="keyword">function</span>(){
+
+        <span class="keyword">var</span> dt = <span class="keyword">this</span>.stepprogress / <span class="number">1000</span>;</pre></div></div>
             
         </li>
         
@@ -554,12 +560,13 @@ correctly.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-27">&#182;</a>
               </div>
-              <p>First move the left paddle, which is always controlled by the user.</p>
+              <p>First move the left paddle, which is always controlled by the user. Math.round is used to prevent the code from trying
+to move the paddle partial pixels.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span>(settings.controls.type === controlOptions.KEYBOARD)
-            movePaddle(paddles.left, paddles.left.top + paddles.left.motion);
+            movePaddle(paddles.left, paddles.left.top + Math.round(paddles.left.motion * dt));
         <span class="keyword">else</span> <span class="keyword">if</span> (settings.controls.type === controlOptions.MOUSE)
             elasticMove(paddles.left, settings.controls.mouseY, settings.playerElasticity);</pre></div></div>
             
@@ -578,7 +585,7 @@ track the ball using elastic move.</p>
             </div>
             
             <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span>(settings.controls.type === controlOptions.KEYBOARD &amp;&amp; settings.multiplayer)
-            movePaddle(paddles.right, paddles.right.top + paddles.right.motion);
+            movePaddle(paddles.right, paddles.right.top + Math.round(paddles.right.motion * dt));
         <span class="keyword">else</span> <span class="keyword">if</span> (!settings.multiplayer)
             <span class="keyword">if</span> (ball.motion.x &gt; <span class="number">0</span>) <span class="comment">/* Only move if the ball is moving to the right */</span>
                 elasticMove(paddles.right, ball.top + <span class="number">0.5</span>* ball.height, settings.aiElasticity);</pre></div></div>
@@ -592,12 +599,12 @@ track the ball using elastic move.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-29">&#182;</a>
               </div>
-              <p>The ball is moved each step</p>
+              <p>The ball is moved each step.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>        <span class="keyword">var</span> left = ball.left + ball.motion.x;
-        <span class="keyword">var</span> top = ball.top + ball.motion.y;
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">var</span> left = ball.left + Math.round(ball.motion.x * dt);
+        <span class="keyword">var</span> top = ball.top + Math.round(ball.motion.y * dt);
         ball.setPosition(left, top);</pre></div></div>
             
         </li>
@@ -629,10 +636,14 @@ track the ball using elastic move.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span>(collide(ball, bars.top) || collide(ball,bars.bottom))
-            ball.motion.y = -ball.motion.y;
-        <span class="keyword">if</span>(collide(ball,paddles.left) || collide(ball, paddles.right))
-            ball.motion.x = -ball.motion.x;
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span>(collide(ball, bars.top))
+            ball.motion.y = settings.ballSpeed / <span class="number">2</span>;
+        <span class="keyword">if</span>(collide(ball, bars.bottom))
+            ball.motion.y = -settings.ballSpeed / <span class="number">2</span>;
+        <span class="keyword">if</span>(collide(ball, paddles.left))
+            ball.motion.x = settings.ballSpeed;
+        <span class="keyword">if</span>(collide(ball, paddles.right))
+            ball.motion.x = -settings.ballSpeed;
 
     });</pre></div></div>
             
@@ -660,13 +671,14 @@ track the ball using elastic move.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-33">&#182;</a>
               </div>
-              <p>You can handle the &#39;keydown&#39; by putting an event handler on <code>Engine.Input</code>.</p>
+              <p>First, let&#39;s create a helper function to avoid having to write the <code>key</code> switch twice. The <code>direction</code> helper variable
+makes sure that any change is reverted when the key is released.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    Engine.Input.on(<span class="string">'keydown'</span>, <span class="keyword">function</span>(e){
-        <span class="keyword">if</span>(settings.controls.type !== controlOptions.KEYBOARD) <span class="keyword">return</span>;
-        <span class="keyword">switch</span>(e.key){
+            <div class="content"><div class='highlight'><pre>    <span class="function"><span class="keyword">function</span> <span class="title">handleKey</span> <span class="params">(event, key)</span>{</span>
+        <span class="keyword">var</span> direction = (event == <span class="string">'down'</span>) ? <span class="number">1</span> : -<span class="number">1</span>;
+        <span class="keyword">switch</span>(key){
             <span class="keyword">case</span> settings.controls.leftUp:</pre></div></div>
             
         </li>
@@ -682,38 +694,21 @@ track the ball using elastic move.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>                paddles.left.motion -= settings.paddleSpeed;
+            <div class="content"><div class='highlight'><pre>                paddles.left.motion -= direction * settings.paddleSpeed;
                 <span class="keyword">break</span>;
             <span class="keyword">case</span> settings.controls.leftDown:
-                paddles.left.motion += settings.paddleSpeed;
+                paddles.left.motion += direction * settings.paddleSpeed;
                 <span class="keyword">break</span>;
             <span class="keyword">case</span> settings.controls.rightUp:
                 <span class="keyword">if</span>(settings.multiplayer)
-                    paddles.right.motion -= settings.paddleSpeed;
+                    paddles.right.motion -= direction * settings.paddleSpeed;
                 <span class="keyword">break</span>;
             <span class="keyword">case</span> settings.controls.rightDown:
                 <span class="keyword">if</span>(settings.multiplayer)
-                    paddles.right.motion += settings.paddleSpeed;
+                    paddles.right.motion += direction * settings.paddleSpeed;
                 <span class="keyword">break</span>;
         }
-    }).on(<span class="string">'keyup'</span>, <span class="keyword">function</span>(e){
-        <span class="keyword">if</span>(settings.controls.type !== controlOptions.KEYBOARD) <span class="keyword">return</span>;
-        <span class="keyword">switch</span>(e.key){
-            <span class="keyword">case</span> settings.controls.leftUp:
-                paddles.left.motion += settings.paddleSpeed;
-                <span class="keyword">break</span>;
-            <span class="keyword">case</span> settings.controls.leftDown:
-                paddles.left.motion -= settings.paddleSpeed;
-                <span class="keyword">break</span>;
-            <span class="keyword">case</span> settings.controls.rightUp:
-                <span class="keyword">if</span>(settings.multiplayer)
-                    paddles.right.motion += settings.paddleSpeed;
-                <span class="keyword">break</span>;
-            <span class="keyword">case</span> settings.controls.rightDown:
-                <span class="keyword">if</span>(settings.multiplayer)
-                    paddles.right.motion -= settings.paddleSpeed;
-                <span class="keyword">break</span>;
-        }</pre></div></div>
+    }</pre></div></div>
             
         </li>
         
@@ -724,14 +719,16 @@ track the ball using elastic move.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-35">&#182;</a>
               </div>
-              <p>For mouse control we should store the position of the mouse when it changes</p>
+              <p>Now catch the actual <code>keydown</code> and <code>keyup</code> by putting an event handler on <code>Engine.Input</code>.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    }).on(<span class="string">'mousemove'</span>, <span class="keyword">function</span>(e){
-        <span class="keyword">if</span>(settings.controls.type !== controlOptions.MOUSE) <span class="keyword">return</span>;
-        settings.controls.mouseY = e.cameraY;
-    });</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    Engine.Input.on(<span class="string">'keydown'</span>, <span class="keyword">function</span>(e){
+        <span class="keyword">if</span>(settings.controls.type === controlOptions.KEYBOARD)
+            handleKey(<span class="string">'down'</span>, e.key);
+    }).on(<span class="string">'keyup'</span>, <span class="keyword">function</span>(e){
+        <span class="keyword">if</span>(settings.controls.type === controlOptions.KEYBOARD)
+            handleKey(<span class="string">'up'</span>, e.key);</pre></div></div>
             
         </li>
         
@@ -742,17 +739,15 @@ track the ball using elastic move.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-36">&#182;</a>
               </div>
-              <p>When the ball goes out bounds, the ball should be placed in the middle of the field. It should then go towards the
-player who just &#39;won&#39;, and randomly go up or down.</p>
+              <p>For mouse control we should store the position of the mouse when it changes.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="function"><span class="keyword">function</span> <span class="title">resetGame</span><span class="params">()</span>{</span>
-        ball.setPosition(layout.width / <span class="number">2</span>, layout.height / <span class="number">2</span>);
-        ball.motion.x = -ball.motion.x;
-        <span class="keyword">if</span>(Math.random() &gt; <span class="number">0.5</span>)
-            ball.motion.y = -ball.motion.y;
-    }</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    }).on(<span class="string">'mousemove'</span>, <span class="keyword">function</span>(e){
+        <span class="keyword">if</span>(settings.controls.type !== controlOptions.MOUSE) <span class="keyword">return</span>;
+        <span class="keyword">if</span>(e.cameraY &gt; bars.top.bottom &amp;&amp; e.cameraY &lt; bars.bottom.top)
+            settings.controls.mouseY = e.cameraY;
+    });</pre></div></div>
             
         </li>
         
@@ -762,6 +757,27 @@ player who just &#39;won&#39;, and randomly go up or down.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-37">&#182;</a>
+              </div>
+              <p>When the ball goes out bounds, the ball should be placed in the middle of the field. It should then go towards the
+player who just &#39;won&#39;, and randomly go up or down.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="function"><span class="keyword">function</span> <span class="title">resetGame</span><span class="params">()</span>{</span>
+        ball.setPosition(layout.width / <span class="number">2</span>, layout.height / <span class="number">2</span>);
+        ball.motion.x *= -<span class="number">1</span>;
+        <span class="keyword">if</span>(Math.random() &gt; <span class="number">0.5</span>)
+            ball.motion.y *= -<span class="number">1</span>;
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-38">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-38">&#182;</a>
               </div>
               <p>Since <code>autoplay</code> is false on the game timer, we should call its <code>play</code> function manually. Let&#39;s also call resetGame
 to start the game</p>
@@ -774,11 +790,11 @@ to start the game</p>
         </li>
         
         
-        <li id="section-38">
+        <li id="section-39">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-38">&#182;</a>
+                <a class="pilcrow" href="#section-39">&#182;</a>
               </div>
               <p>Move both paddles to get them in correct starting positions, the &#39;movePaddle&#39; function will make sure they won&#39;t remain
 in a position which collides with the top or bottom bars.</p>
@@ -791,11 +807,11 @@ in a position which collides with the top or bottom bars.</p>
         </li>
         
         
-        <li id="section-39">
+        <li id="section-40">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-39">&#182;</a>
+                <a class="pilcrow" href="#section-40">&#182;</a>
               </div>
               <p>Finally, we need to close the <code>Engine.ready</code> handler. You can see the game running
 <a href="http://jsfiddle.net/Solpeo/FJkAr/">here</a>. Please do keep in mind that the keyboard controls don&#39;t work in jsFiddle,
