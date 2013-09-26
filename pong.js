@@ -7,17 +7,17 @@ Engine.ready(function () {
 
     var settings = {
         barSize: 20,
-        ballSpeed: 10,
         margin: 40,
         paddleHeight: 80,
-        paddleSpeed: 10,
+        ballSize: 20,
+        color: 'white',
+        stroke: 'transparent',
+        ballSpeed: 300,
+        paddleSpeed: 100,
         minPaddleSpeed: 5,
         maxPaddleSpeed: 15,
         playerElasticity: 0.5,
         aiElasticity: 0.2,
-        ballSize: 20,
-        color: 'white',
-        stroke: 'transparent',
         multiplayer: false,
         controls: {
             type: controlOptions.MOUSE,
@@ -39,14 +39,15 @@ Engine.ready(function () {
     });
 
     var camera = new Engine.Camera({
-                lookAt: scene
+        lookAt: scene,
+        scrollable: false
     });
 
     viewport.addCamera(camera);
 
     // Draw Elements
 
-    var layout = window.layout = new Engine.UI.Layout({
+    var layout = new Engine.UI.Layout({
         fill: camera
     });
 
@@ -162,82 +163,79 @@ Engine.ready(function () {
 
     game.on('step', function(){
 
+        var dt = this.stepprogress / 1000;
+
         // Move left paddle
         if(settings.controls.type === controlOptions.KEYBOARD)
-            movePaddle(paddles.left, paddles.left.top + paddles.left.motion);
+            movePaddle(paddles.left, paddles.left.top + Math.round(paddles.left.motion * dt));
         else if (settings.controls.type === controlOptions.MOUSE)
             elasticMove(paddles.left, settings.controls.mouseY, settings.playerElasticity);
 
         // Move right paddle
         if(settings.controls.type === controlOptions.KEYBOARD && settings.multiplayer)
-            movePaddle(paddles.right, paddles.right.top + paddles.right.motion);
+            movePaddle(paddles.right, paddles.right.top + Math.round(paddles.right.motion * dt));
         else if (!settings.multiplayer)
             if (ball.motion.x > 0) /* Only move if the ball is moving to the right */
                 elasticMove(paddles.right, ball.top + 0.5* ball.height, settings.aiElasticity);
 
         // Move ball
-        var left = ball.left + ball.motion.x;
-        var top = ball.top + ball.motion.y;
+        var left = ball.left + Math.round(ball.motion.x * dt);
+        var top = ball.top + Math.round(ball.motion.y * dt);
         ball.setPosition(left, top);
 
         if(ball.left < 0 || (ball.left + ball.width) > layout.width)
             resetGame();
 
-        if(collide(ball, bars.top) || collide(ball,bars.bottom))
-            ball.motion.y = -ball.motion.y;
-        if(collide(ball,paddles.left) || collide(ball, paddles.right))
-            ball.motion.x = -ball.motion.x;
+        if(collide(ball, bars.top))
+            ball.motion.y = settings.ballSpeed / 2;
+        if(collide(ball, bars.bottom))
+            ball.motion.y = -settings.ballSpeed / 2;
+        if(collide(ball, paddles.left))
+            ball.motion.x = settings.ballSpeed;
+        if(collide(ball, paddles.right))
+            ball.motion.x = -settings.ballSpeed;
 
     });
 
     // Input
+    function handleKey (event, key){
+        var direction = (event == 'down') ? 1 : -1;
+        switch(key){
+            case settings.controls.leftUp:
+                paddles.left.motion -= direction * settings.paddleSpeed;
+                break;
+            case settings.controls.leftDown:
+                paddles.left.motion += direction * settings.paddleSpeed;
+                break;
+            case settings.controls.rightUp:
+                if(settings.multiplayer)
+                    paddles.right.motion -= direction * settings.paddleSpeed;
+                break;
+            case settings.controls.rightDown:
+                if(settings.multiplayer)
+                    paddles.right.motion += direction * settings.paddleSpeed;
+                break;
+        }
+    }
+
     Engine.Input.on('keydown', function(e){
-        if(settings.controls.type !== controlOptions.KEYBOARD) return;
-        switch(e.key){
-            case settings.controls.leftUp:
-                paddles.left.motion -= settings.paddleSpeed;
-                break;
-            case settings.controls.leftDown:
-                paddles.left.motion += settings.paddleSpeed;
-                break;
-            case settings.controls.rightUp:
-                if(settings.multiplayer)
-                    paddles.right.motion -= settings.paddleSpeed;
-                break;
-            case settings.controls.rightDown:
-                if(settings.multiplayer)
-                    paddles.right.motion += settings.paddleSpeed;
-                break;
-        }
+        if(settings.controls.type === controlOptions.KEYBOARD)
+            handleKey('down', e.key);
     }).on('keyup', function(e){
-        if(settings.controls.type !== controlOptions.KEYBOARD) return;
-        switch(e.key){
-            case settings.controls.leftUp:
-                paddles.left.motion += settings.paddleSpeed;
-                break;
-            case settings.controls.leftDown:
-                paddles.left.motion -= settings.paddleSpeed;
-                break;
-            case settings.controls.rightUp:
-                if(settings.multiplayer)
-                    paddles.right.motion += settings.paddleSpeed;
-                break;
-            case settings.controls.rightDown:
-                if(settings.multiplayer)
-                    paddles.right.motion -= settings.paddleSpeed;
-                break;
-        }
+        if(settings.controls.type === controlOptions.KEYBOARD)
+            handleKey('up', e.key);
     }).on('mousemove', function(e){
         if(settings.controls.type !== controlOptions.MOUSE) return;
-        settings.controls.mouseY = e.cameraY;
+        if(e.cameraY > bars.top.bottom && e.cameraY < bars.bottom.top)
+            settings.controls.mouseY = e.cameraY;
     });
 
     // Reset game
     function resetGame(){
         ball.setPosition(layout.width / 2, layout.height / 2);
-        ball.motion.x = -ball.motion.x;
+        ball.motion.x *= -1;
         if(Math.random() > 0.5)
-            ball.motion.y = -ball.motion.y;
+            ball.motion.y *= -1;
     }
 
     // Start game

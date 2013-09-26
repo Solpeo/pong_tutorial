@@ -27,7 +27,6 @@ and define that in the settings. Similarly, we'll define how large several other
             barSize: 20,
             margin: 40,
             paddleHeight: 80,
-            ballSpeed: 10,
             ballSize: 20,
             color: 'white',
             stroke: 'transparent',
@@ -35,7 +34,8 @@ and define that in the settings. Similarly, we'll define how large several other
 In the Pong game, both the ball and the paddles will need to be able to move. Let's define some variables here which
 will allow us to fine-tune the movement later.
 
-            paddleSpeed: 10,
+            ballSpeed: 300,
+            paddleSpeed: 100,
             minPaddleSpeed: 5,
             maxPaddleSpeed: 15,
             playerElasticity: 0.5,
@@ -84,10 +84,12 @@ If the width and height are left undefined, the viewport becomes fullscreen.
             id: 'engine'
         });
 
-The camera actually renders the scene.
+The camera actually renders the scene. For a Pong game it shouldn't be scrollable, or a user could drag away the game
+using their mouse.
 
         var camera = new Engine.Camera({
-            lookAt: scene
+            lookAt: scene,
+            scrollable: false
         });
 
 After adding the camera to the viewport, the engine will actually already run. If you run the current code it would
@@ -103,7 +105,7 @@ Draw Elements
 We'll use a layout node to draw the visible elements on, because we would like to anchor the paddles and bars to the
 outsides of the camera.
 
-        var layout = window.layout = new Engine.UI.Layout({
+        var layout = new Engine.UI.Layout({
             fill: camera
         });
 
@@ -246,14 +248,19 @@ correctly.
             paddle.setPosition(paddle.left, top);
         }
 
-The on `step` handler is called on each new frame, in most games it would hold the game loop logic.
+The on `step` handler is called on each new frame, in most games it would hold the game loop logic. The timer's
+stepprogress property indicates the amount of milliseconds that elapsed since the previous frame. This is used here
+to make sure frame rate drops won't affect the movement speed.
 
         game.on('step', function(){
 
-First move the left paddle, which is always controlled by the user.
+            var dt = this.stepprogress / 1000;
+
+First move the left paddle, which is always controlled by the user. Math.round is used to prevent the code from trying
+to move the paddle partial pixels.
 
             if(settings.controls.type === controlOptions.KEYBOARD)
-                movePaddle(paddles.left, paddles.left.top + paddles.left.motion);
+                movePaddle(paddles.left, paddles.left.top + Math.round(paddles.left.motion * dt));
             else if (settings.controls.type === controlOptions.MOUSE)
                 elasticMove(paddles.left, settings.controls.mouseY, settings.playerElasticity);
 
@@ -261,15 +268,15 @@ Now move the right paddle, which depending on the settings is player controlled 
 track the ball using elastic move.
 
             if(settings.controls.type === controlOptions.KEYBOARD && settings.multiplayer)
-                movePaddle(paddles.right, paddles.right.top + paddles.right.motion);
+                movePaddle(paddles.right, paddles.right.top + Math.round(paddles.right.motion * dt));
             else if (!settings.multiplayer)
                 if (ball.motion.x > 0) /* Only move if the ball is moving to the right */
                     elasticMove(paddles.right, ball.top + 0.5* ball.height, settings.aiElasticity);
 
-The ball is moved each step
+The ball is moved each step.
 
-            var left = ball.left + ball.motion.x;
-            var top = ball.top + ball.motion.y;
+            var left = ball.left + Math.round(ball.motion.x * dt);
+            var top = ball.top + Math.round(ball.motion.y * dt);
             ball.setPosition(left, top);
 
 If the ball goes out of frame, the game is reset
@@ -279,10 +286,14 @@ If the ball goes out of frame, the game is reset
 
 If the ball collides with either the bars or the paddles, its motion in one of its dimensions is reverted
 
-            if(collide(ball, bars.top) || collide(ball,bars.bottom))
-                ball.motion.y = -ball.motion.y;
-            if(collide(ball,paddles.left) || collide(ball, paddles.right))
-                ball.motion.x = -ball.motion.x;
+            if(collide(ball, bars.top))
+                ball.motion.y = settings.ballSpeed / 2;
+            if(collide(ball, bars.bottom))
+                ball.motion.y = -settings.ballSpeed / 2;
+            if(collide(ball, paddles.left))
+                ball.motion.x = settings.ballSpeed;
+            if(collide(ball, paddles.right))
+                ball.motion.x = -settings.ballSpeed;
 
         });
 
@@ -291,53 +302,47 @@ Handling Keyboard Input
 
     -
 
-You can handle the 'keydown' by putting an event handler on `Engine.Input`.
+First, let's create a helper function to avoid having to write the `key` switch twice. The `direction` helper variable
+makes sure that any change is reverted when the key is released.
 
-        Engine.Input.on('keydown', function(e){
-            if(settings.controls.type !== controlOptions.KEYBOARD) return;
-            switch(e.key){
+        function handleKey (event, key){
+            var direction = (event == 'down') ? 1 : -1;
+            switch(key){
                 case settings.controls.leftUp:
 
 When the motion is set, the game loop will start moving the paddle
 
-                    paddles.left.motion -= settings.paddleSpeed;
+                    paddles.left.motion -= direction * settings.paddleSpeed;
                     break;
                 case settings.controls.leftDown:
-                    paddles.left.motion += settings.paddleSpeed;
+                    paddles.left.motion += direction * settings.paddleSpeed;
                     break;
                 case settings.controls.rightUp:
                     if(settings.multiplayer)
-                        paddles.right.motion -= settings.paddleSpeed;
+                        paddles.right.motion -= direction * settings.paddleSpeed;
                     break;
                 case settings.controls.rightDown:
                     if(settings.multiplayer)
-                        paddles.right.motion += settings.paddleSpeed;
+                        paddles.right.motion += direction * settings.paddleSpeed;
                     break;
             }
-        }).on('keyup', function(e){
-            if(settings.controls.type !== controlOptions.KEYBOARD) return;
-            switch(e.key){
-                case settings.controls.leftUp:
-                    paddles.left.motion += settings.paddleSpeed;
-                    break;
-                case settings.controls.leftDown:
-                    paddles.left.motion -= settings.paddleSpeed;
-                    break;
-                case settings.controls.rightUp:
-                    if(settings.multiplayer)
-                        paddles.right.motion += settings.paddleSpeed;
-                    break;
-                case settings.controls.rightDown:
-                    if(settings.multiplayer)
-                        paddles.right.motion -= settings.paddleSpeed;
-                    break;
-            }
+        }
 
-For mouse control we should store the position of the mouse when it changes
+Now catch the actual `keydown` and `keyup` by putting an event handler on `Engine.Input`.
+
+        Engine.Input.on('keydown', function(e){
+            if(settings.controls.type === controlOptions.KEYBOARD)
+                handleKey('down', e.key);
+        }).on('keyup', function(e){
+            if(settings.controls.type === controlOptions.KEYBOARD)
+                handleKey('up', e.key);
+
+For mouse control we should store the position of the mouse when it changes.
 
         }).on('mousemove', function(e){
             if(settings.controls.type !== controlOptions.MOUSE) return;
-            settings.controls.mouseY = e.cameraY;
+            if(e.cameraY > bars.top.bottom && e.cameraY < bars.bottom.top)
+                settings.controls.mouseY = e.cameraY;
         });
 
 
@@ -346,9 +351,9 @@ player who just 'won', and randomly go up or down.
 
         function resetGame(){
             ball.setPosition(layout.width / 2, layout.height / 2);
-            ball.motion.x = -ball.motion.x;
+            ball.motion.x *= -1;
             if(Math.random() > 0.5)
-                ball.motion.y = -ball.motion.y;
+                ball.motion.y *= -1;
         }
 
 Since `autoplay` is false on the game timer, we should call its `play` function manually. Let's also call resetGame
